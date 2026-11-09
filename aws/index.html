@@ -1,0 +1,40 @@
+<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>Domain hunt</title>
+<style>body{font:15px system-ui;max-width:860px;margin:2rem auto;padding:0 1rem}
+table{width:100%;border-collapse:collapse;margin-bottom:2rem}td,th{padding:.3rem .4rem;border-bottom:1px solid #ddd;text-align:left}
+button{font:inherit;padding:.3rem .7rem;margin-right:.4rem;border:1px solid #888;border-radius:6px;background:#fff;cursor:pointer}button.del{background:#b00;color:#fff;border-color:#b00;float:right}button.on{background:#222;color:#fff}.bar{margin:.6rem 0}.m{color:#666}.y{color:#0a7d2c;font-weight:600}.n{color:#b00;opacity:.6}</style>
+<button class=del id=del>Delete all resources</button><h1>Domain hunt</h1><p class=m id=s>loading…</p>
+<h2>Available (.com and/or .io)</h2>
+<div class=bar>
+<button data-f=all class=on>All</button><button data-f=com>.com available</button><button data-f=io>.io available</button>
+<button id=cp>Copy names</button> <span class=m id=msg></span></div>
+<table><thead><tr><th>Word<th>.com<th>.io<th>Found</thead><tbody id=a></tbody></table>
+<script>
+const c=(x)=>x.ok?`<span class=y>✓ $${x.price} (renews $${x.renewal})</span>`:'<span class=n>✗ taken</span>';
+const row=(x)=>`<tr><td>${x.word}<td>${c(x.com)}<td>${c(x.io)}<td class=m>${x.at}`;
+let D=null,F='all';
+const vis=()=>D.available.filter(x=>F=='all'||x[F].ok).reverse();
+function draw(){
+ if(!D)return;
+ s.textContent=`${D.checked} checked · ${D.available.length} with something available · showing ${vis().length} · updated ${D.updated}`;
+ a.innerHTML=vis().map(row).join('');
+}
+async function go(){D=await (await fetch('results.json?'+Date.now())).json();draw();}
+document.querySelectorAll('button[data-f]').forEach(b=>b.onclick=()=>{
+ F=b.dataset.f;document.querySelectorAll('button[data-f]').forEach(x=>x.classList.toggle('on',x==b));draw();});
+cp.onclick=()=>{
+ const t=vis().map(x=>x.word).join(' ');
+ const done=()=>{msg.textContent=`copied ${vis().length} names`;setTimeout(()=>msg.textContent='',2500)};
+ if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(t).then(done);
+ else{const e=document.createElement('textarea');e.value=t;document.body.appendChild(e);e.select();document.execCommand('copy');e.remove();done();}
+};
+if(document.getElementById('del'))del.onclick=async()=>{
+ if(!confirm('This permanently deletes the Lambda, schedule, S3 bucket (this page and all results), logs and IAM roles. Continue?'))return;
+ const password=prompt('Password:');if(!password)return;
+ msg.textContent='deleting…';
+ try{const r=await fetch('__TEARDOWN_URL__',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password})});
+  const j=await r.json();msg.textContent=r.ok?'Deleted: '+j.deleted.join(', '):'Failed: '+(j.error||r.status);
+ }catch(e){msg.textContent='Request failed (it may have succeeded; reload to check)';}
+};
+go();setInterval(go,60000);
+</script>

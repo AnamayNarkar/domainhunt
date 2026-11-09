@@ -1,0 +1,4 @@
+nltk
+wordfreq
+cmudict
+pytest
